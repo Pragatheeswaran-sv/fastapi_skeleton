@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "fastapi-jwt-auth"
+version = "0.1.0"
+description = "Reusable JWT authentication project"
+readme = "README.md"
+authors = ["Pragatheeswaran-sv <pragatheeswaran.s@mitrahsoft.in>"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = ">=3.12,<4.0"
+fastapi = "^0.141.1"
+uvicorn = {extras = ["standard"], version = "^0.52.3"}
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
