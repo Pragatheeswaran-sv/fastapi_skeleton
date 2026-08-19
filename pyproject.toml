@@ -10,6 +10,12 @@ package-mode = false
 python = ">=3.12,<4.0"
 fastapi = "^0.141.1"
 uvicorn = {extras = ["standard"], version = "^0.52.3"}
+sqlalchemy = "^2.0.52"
+python-dotenv = "^1.2.3"
+psycopg = {extras = ["binary"], version = "^3.3.4"}
+alembic = "^1.19.1"
+pwdlib = {extras = ["argon2"], version = "^0.3.1"}
+pyjwt = "^2.13.0"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
