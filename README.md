@@ -10,11 +10,11 @@ A reusable JWT authentication template for FastAPI applications. Clone it, confi
 - Logout with refresh token revocation
 - Role-based authorization (`admin`, `user`)
 - Protected endpoints via Bearer token
-- Database-backed session/token management (PostgreSQL)
+- Multi-database support (PostgreSQL, MySQL, SQL Server)
 - Password hashing with Argon2
 - Structured logging with configurable log levels
 - Try-except error handling on all endpoints and service functions
-- Unit tests with pytest
+- Unit tests with pytest (27 tests)
 - CI pipeline with GitHub Actions
 
 ## Tech Stack
@@ -22,7 +22,7 @@ A reusable JWT authentication template for FastAPI applications. Clone it, confi
 - Python 3.12+
 - FastAPI 0.141
 - SQLAlchemy 2.0 + Alembic
-- PostgreSQL (psycopg 3)
+- PostgreSQL (psycopg 3) / MySQL (mysql-connector-python) / SQL Server (pyodbc)
 - PyJWT (HS256)
 - pwdlib (Argon2)
 - Docker & Docker Compose
@@ -46,16 +46,30 @@ Copy the example env file and update the values:
 cp .env.example .env
 ```
 
-```env
-DATABASE_URL=postgresql+psycopg://postgres:your_password@localhost:5432/application_db
+Choose your database and set the `DATABASE_URL`:
 
+**PostgreSQL:**
+```env
+DATABASE_URL=postgresql+psycopg://username:password@localhost:5432/application_db
+```
+
+**MySQL:**
+```env
+DATABASE_URL=mysql+mysqlconnector://username:password@localhost:3306/application_db
+```
+
+**SQL Server:**
+```env
+DATABASE_URL=mssql+pyodbc://username:password@localhost:1433/application_db?driver=ODBC+Driver+17+for+SQL+Server&TrustServerCertificate=yes
+```
+
+Common settings:
+```env
 JWT_SECRET_KEY=your-secret-key-here
 JWT_ALGORITHM=HS256
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
 JWT_REFRESH_TOKEN_EXPIRE_DAYS=7
 ```
-
-> `DATABASE_URL` points to the PostgreSQL instance on the host machine. Make sure PostgreSQL is running before starting the container.
 
 ### 3. Run with Docker
 
@@ -75,6 +89,18 @@ On first startup the entrypoint will:
 ```
 http://localhost:8000/docs
 ```
+
+## Database Support
+
+Models use only database-agnostic types (`String`, `DateTime`, `Boolean`) so they work across all three databases without changes.
+
+| Database | Driver | Connection Prefix | Notes |
+|----------|--------|-------------------|-------|
+| PostgreSQL | psycopg 3 | `postgresql+psycopg://` | Recommended for production |
+| MySQL | mysql-connector-python | `mysql+mysqlconnector://` | — |
+| SQL Server | pyodbc | `mssql+pyodbc://` | Requires ODBC Driver 17 on host |
+
+> When running in Docker, the Dockerfile includes the SQL Server ODBC driver. For local development, install [ODBC Driver 17 for SQL Server](https://learn.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server) on your machine.
 
 ## Sample Users (seeded automatically)
 
@@ -156,7 +182,7 @@ curl http://localhost:8000/auth/user/profile \
 │   ├── main.py                    # FastAPI app entry point
 │   ├── jwt_auth/
 │   │   ├── api.py                 # Auth route handlers
-│   │   ├── models.py              # SQLAlchemy models
+│   │   ├── models.py              # SQLAlchemy models (DB-agnostic)
 │   │   └── schema.py              # Pydantic schemas
 │   ├── services/jwt_auth/
 │   │   ├── dependancy.py          # get_current_user, require_role
@@ -202,6 +228,7 @@ GitHub Actions runs tests automatically on every push and pull request to `devel
 ```yaml
 # .github/workflows/ci.yml
 - Installs Python 3.12 and Poetry
+- Sets JWT_SECRET_KEY and DATABASE_URL env vars
 - Runs all 27 tests with pytest
 ```
 
@@ -211,7 +238,7 @@ No manual setup required — just push the workflow file.
 
 All endpoints and service functions are wrapped in try-except blocks:
 
-- **Expected errors** (401, 403, 404) — re-raised as `HTTPException`
+- **Expected errors** (401, 403) — re-raised as `HTTPException`
 - **Unexpected errors** (DB failures, etc.) — logged with full traceback via `logger.exception()`, returns `500 Internal Server Error`
 
 Example log output:
@@ -238,7 +265,7 @@ Set the `LOG_LEVEL` env var to control verbosity (`DEBUG`, `INFO`, `WARNING`, `E
 ```bash
 pip install poetry
 poetry install --with test
-cp .env.example .env   # update DATABASE_URL to point to your local Postgres
+cp .env.example .env   # update DATABASE_URL to point to your local database
 alembic upgrade head
 python -m src.insert_user
 uvicorn src.main:app --reload
