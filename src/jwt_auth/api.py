@@ -144,14 +144,14 @@ def logout(refresh_data: RefreshTokenRequest, db: Session = Depends(get_db)):
         )
 
 
-@router.get("/admin/dashboard")
-def admin_dashboard(
+@router.get("/admin/profile")
+def admin_profile(
     current_user: dict[str, Any] = Depends(require_role("admin")),
 ):
     try:
         return {
             "status_code": status.HTTP_200_OK,
-            "message": "Admin dashboard accessed successfully",
+            "message": "Admin profile retrieved successfully",
             "data": {
                 "user_id": current_user.get("sub"),
                 "email": current_user.get("email"),
@@ -161,21 +161,21 @@ def admin_dashboard(
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("Error accessing admin dashboard")
+        logger.exception("Error accessing admin profile")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error",
         )
 
 
-@router.get("/user/dashboard")
-def user_dashboard(
+@router.get("/user/profile")
+def user_profile(
     current_user: dict[str, Any] = Depends(require_role("user")),
 ):
     try:
         return {
             "status_code": status.HTTP_200_OK,
-            "message": "User dashboard accessed successfully",
+            "message": "User profile retrieved successfully",
             "data": {
                 "user_id": current_user.get("sub"),
                 "email": current_user.get("email"),
@@ -185,7 +185,7 @@ def user_dashboard(
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("Error accessing user dashboard")
+        logger.exception("Error accessing user profile")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error",

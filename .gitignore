@@ -34,3 +34,6 @@ build/
 
 # Alembic
 *.db
+
+# Poetry (keep poetry.lock committed)
+poetry.toml

@@ -8,9 +8,7 @@ from src.utils.jwt_handler import decode_token
 security = HTTPBearer()
 
 
-def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-) -> dict[str, Any]:
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict[str, Any]:
     token = credentials.credentials
 
     try:
@@ -32,9 +30,7 @@ def get_current_user(
 
 
 def require_role(*allowed_roles: str):
-    def dependency(
-        current_user: dict[str, Any] = Depends(get_current_user),
-    ) -> dict[str, Any]:
+    def dependency(current_user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
         user_role = current_user.get("role")
 
         if user_role not in allowed_roles:
