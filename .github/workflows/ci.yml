@@ -8,6 +8,10 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      JWT_SECRET_KEY: test-secret-key-for-ci
+      JWT_ALGORITHM: HS256
+      DATABASE_URL: sqlite:///test.db
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
