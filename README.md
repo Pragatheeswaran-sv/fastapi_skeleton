@@ -12,7 +12,10 @@ A reusable JWT authentication template for FastAPI applications. Clone it, confi
 - Protected endpoints via Bearer token
 - Database-backed session/token management (PostgreSQL)
 - Password hashing with Argon2
-- Structured logging
+- Structured logging with configurable log levels
+- Try-except error handling on all endpoints and service functions
+- Unit tests with pytest
+- CI pipeline with GitHub Actions
 
 ## Tech Stack
 
@@ -23,6 +26,8 @@ A reusable JWT authentication template for FastAPI applications. Clone it, confi
 - PyJWT (HS256)
 - pwdlib (Argon2)
 - Docker & Docker Compose
+- pytest + httpx (testing)
+- GitHub Actions (CI)
 
 ## Quick Start
 
@@ -62,7 +67,7 @@ On first startup the entrypoint will:
 
 1. Wait for the database to be ready
 2. Run Alembic migrations (creates `users` and `refresh_tokens` tables)
-3. inserd two sample users
+3. Insert two sample users
 4. Start the FastAPI server on port 8000
 
 ### 4. Open the API docs
@@ -80,15 +85,15 @@ http://localhost:8000/docs
 
 ## API Endpoints
 
-| Method | Endpoint              | Auth Required | Role        | Description                       |
-|--------|-----------------------|---------------|-------------|-----------------------------------|
-| POST   | `/auth/login`         | No            | —           | Login, returns access+refresh tokens |
+| Method | Endpoint              | Auth Required | Role        | Description                              |
+|--------|-----------------------|---------------|-------------|------------------------------------------|
+| POST   | `/auth/login`         | No            | —           | Login, returns access + refresh tokens   |
 | POST   | `/auth/refresh`       | No            | —           | Exchange refresh token for new access token |
-| POST   | `/auth/logout`        | No            | —           | Revoke a refresh token            |
-| GET    | `/auth/profile`       | Yes           | Any         | Get current user info             |
-| GET    | `/auth/admin/dashboard` | Yes         | admin       | Admin-only endpoint               |
-| GET    | `/auth/user/dashboard`  | Yes         | user        | User-only endpoint                |
-| GET    | `/health_check`       | No            | —           | Health check                      |
+| POST   | `/auth/logout`        | No            | —           | Revoke a refresh token                   |
+| GET    | `/auth/profile`       | Yes           | Any         | Get current user info                    |
+| GET    | `/auth/admin/profile` | Yes           | admin       | Admin-only profile                       |
+| GET    | `/auth/user/profile`  | Yes           | user        | User-only profile                        |
+| GET    | `/health_check`       | No            | —           | Health check                             |
 
 ## Usage Example
 
@@ -127,11 +132,11 @@ curl -X POST http://localhost:8000/auth/logout \
 
 ```bash
 # Admin only
-curl http://localhost:8000/auth/admin/dashboard \
+curl http://localhost:8000/auth/admin/profile \
   -H "Authorization: Bearer <admin_access_token>"
 
 # User only
-curl http://localhost:8000/auth/user/dashboard \
+curl http://localhost:8000/auth/user/profile \
   -H "Authorization: Bearer <user_access_token>"
 ```
 
@@ -139,30 +144,83 @@ curl http://localhost:8000/auth/user/dashboard \
 
 ```
 .
-├── alembic/                    # Database migrations
+├── .github/workflows/
+│   └── ci.yml                     # GitHub Actions CI pipeline
+├── alembic/                       # Database migrations
 │   ├── env.py
 │   └── versions/
 ├── src/
-│   ├── config.py               # Env vars, logging setup
-│   ├── database.py             # SQLAlchemy engine & session
-│   ├── insert_user.py          # Seed script
-│   ├── main.py                 # FastAPI app entry point
+│   ├── config.py                  # Env vars, logging setup
+│   ├── database.py                # SQLAlchemy engine & session
+│   ├── insert_user.py             # Seed script
+│   ├── main.py                    # FastAPI app entry point
 │   ├── jwt_auth/
-│   │   ├── api.py              # Auth route handlers
-│   │   ├── models.py           # SQLAlchemy models
-│   │   └── schema.py           # Pydantic schemas
+│   │   ├── api.py                 # Auth route handlers
+│   │   ├── models.py              # SQLAlchemy models
+│   │   └── schema.py              # Pydantic schemas
 │   ├── services/jwt_auth/
-│   │   ├── dependancy.py       # get_current_user, require_role
-│   │   └── service.py          # Auth business logic
+│   │   ├── dependancy.py          # get_current_user, require_role
+│   │   └── service.py             # Auth business logic
 │   └── utils/
-│       ├── jwt_handler.py      # JWT encode/decode
-│       └── password_helper.py  # Argon2 hashing
+│       ├── jwt_handler.py         # JWT encode/decode
+│       └── password_helper.py     # Argon2 hashing
+├── tests/
+│   ├── conftest.py                # Shared fixtures and mocks
+│   ├── test_auth.py               # Endpoint tests (19 tests)
+│   └── test_dependency.py         # Dependency tests (8 tests)
 ├── docker-compose.yaml
 ├── dockerfile
 ├── docker-entrypoint.sh
 ├── .env.example
 ├── pyproject.toml
 └── README.md
+```
+
+## Testing
+
+### Run tests locally
+
+```bash
+poetry install --with test
+poetry run pytest -v
+```
+
+### Test coverage
+
+| File | Tests | What it covers |
+|------|-------|---------------|
+| `test_auth.py` | 19 | Login, refresh, logout, profile, admin/profile, user/profile, health check |
+| `test_dependency.py` | 8 | get_current_user, require_role (valid token, invalid token, role checks) |
+| **Total** | **27** | All endpoints and auth dependencies |
+
+Tests use mocked database sessions and service functions — no real database required.
+
+## CI Pipeline
+
+GitHub Actions runs tests automatically on every push and pull request to `develop`.
+
+```yaml
+# .github/workflows/ci.yml
+- Installs Python 3.12 and Poetry
+- Runs all 27 tests with pytest
+```
+
+No manual setup required — just push the workflow file.
+
+## Error Handling
+
+All endpoints and service functions are wrapped in try-except blocks:
+
+- **Expected errors** (401, 403, 404) — re-raised as `HTTPException`
+- **Unexpected errors** (DB failures, etc.) — logged with full traceback via `logger.exception()`, returns `500 Internal Server Error`
+
+Example log output:
+
+```
+2026-08-19 10:00:00 | ERROR    | src.jwt_auth.api | Error during login for: test@example.com
+Traceback (most recent call last):
+  File "src/jwt_auth/api.py", line 78, in login
+    ...
 ```
 
 ## Logging
@@ -179,7 +237,7 @@ Set the `LOG_LEVEL` env var to control verbosity (`DEBUG`, `INFO`, `WARNING`, `E
 
 ```bash
 pip install poetry
-poetry install
+poetry install --with test
 cp .env.example .env   # update DATABASE_URL to point to your local Postgres
 alembic upgrade head
 python -m src.insert_user

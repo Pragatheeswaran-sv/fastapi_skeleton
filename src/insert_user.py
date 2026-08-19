@@ -45,8 +45,8 @@ def seed_users() -> None:
                 password_hash=hash_password(sample_user["password"]),
                 phone_number=sample_user["phone_number"],
                 is_active=True,
-                created_by="automation",
-                updated_by="automation",
+                created_by=sample_user["name"],
+                updated_by=sample_user["name"],
             )
 
             db.add(user)
@@ -56,7 +56,7 @@ def seed_users() -> None:
 
     except Exception:
         db.rollback()
-        logger.exception("Error seeding users")
+        logger.exception("Error inserted users")
         raise
 
     finally:

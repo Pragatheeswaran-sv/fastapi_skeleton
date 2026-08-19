@@ -55,16 +55,16 @@ def create_tokens(db: Session, user: User):
         refresh_payload = decode_token(refresh_token)
 
         refresh_token_record = RefreshToken(
-            user_id=user.user_id,
-            jti=refresh_payload["jti"],
-            token=refresh_token,
-            expires_at=datetime.fromtimestamp(
+            user_id = user.user_id,
+            jti = refresh_payload["jti"],
+            token = refresh_token,
+            expires_at = datetime.fromtimestamp(
                 refresh_payload["exp"],
                 tz=timezone.utc,
             ),
             is_revoked=False,
-            created_by="login",
-            updated_by="login",
+            created_by = user.email_address,
+            updated_by = user.email_address,
         )
 
         db.add(refresh_token_record)
@@ -158,7 +158,7 @@ def revoke_refresh_token(db: Session, refresh_token: str) -> bool:
     token_record.is_revoked = True
     token_record.revoked_at = datetime.now(timezone.utc)
     token_record.updated_at = datetime.now(timezone.utc)
-    token_record.updated_by = "logout"
+    token_record.updated_by = payload.get("email")
 
     db.commit()
     logger.info("Refresh token revoked (jti=%s)", jti)
