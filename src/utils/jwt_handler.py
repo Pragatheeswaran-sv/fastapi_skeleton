@@ -19,6 +19,7 @@ def create_access_token(user_id: str, email: str, role: str) -> str:
         "email": email,
         "role": role,
         "type": "access",
+        "jti": str(uuid.uuid4()),
         "iat": now,
         "exp": now + timedelta(minutes = JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
     }

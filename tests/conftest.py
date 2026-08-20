@@ -63,6 +63,7 @@ def mock_user():
     user.email_address = SAMPLE_EMAIL
     user.is_active = True
     user.password_hash = "hashed_password"
+    user.role = "user"
     return user
 
 
@@ -73,6 +74,7 @@ def mock_inactive_user():
     user.email_address = SAMPLE_EMAIL
     user.is_active = False
     user.password_hash = "hashed_password"
+    user.role = "user"
     return user
 
 
@@ -80,5 +82,6 @@ def mock_inactive_user():
 def mock_refresh_token_record():
     record = MagicMock(spec=RefreshToken)
     record.jti = str(uuid.uuid4())
+    record.access_token_jti = str(uuid.uuid4())
     record.is_revoked = False
     return record

@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from src.config import get_logger
-from src.jwt_auth.models import RefreshToken, User
+from src.jwt_auth.models import AccessTokenBlacklist, RefreshToken, User
 from src.utils.jwt_handler import (
     create_access_token,
     create_refresh_token,
@@ -38,7 +38,7 @@ def authenticate_user(db: Session, email_address: str, password: str):
 
 def create_tokens(db: Session, user: User):
     try:
-        role = "admin" if user.email_address == "demouser@example.com" else "user"
+        role = user.role
 
         access_token = create_access_token(
             user_id=str(user.user_id),
@@ -52,12 +52,14 @@ def create_tokens(db: Session, user: User):
             role=role,
         )
 
+        access_payload = decode_token(access_token)
         refresh_payload = decode_token(refresh_token)
 
         refresh_token_record = RefreshToken(
             user_id = user.user_id,
             jti = refresh_payload["jti"],
             token = refresh_token,
+            access_token_jti = access_payload.get("jti"),
             expires_at = datetime.fromtimestamp(
                 refresh_payload["exp"],
                 tz=timezone.utc,
@@ -116,12 +118,36 @@ def refresh_access_token(db: Session, refresh_token: str):
         logger.warning("Refresh failed: missing claims in token")
         return None
 
-    logger.info("Access token refreshed for user: %s", email)
-    return create_access_token(
+    if token_record.access_token_jti:
+        existing_blacklist = (
+            db.query(AccessTokenBlacklist)
+            .filter(AccessTokenBlacklist.jti == token_record.access_token_jti)
+            .first()
+        )
+        if not existing_blacklist:
+            blacklist_record = AccessTokenBlacklist(
+                jti=token_record.access_token_jti,
+                token="",
+                expires_at=token_record.expires_at,
+                created_by=email,
+            )
+            db.add(blacklist_record)
+
+    new_access_token = create_access_token(
         user_id=user_id,
         email=email,
         role=role,
     )
+
+    new_access_payload = decode_token(new_access_token)
+    token_record.access_token_jti = new_access_payload.get("jti")
+    token_record.updated_at = datetime.now(timezone.utc)
+    token_record.updated_by = email
+
+    db.commit()
+
+    logger.info("Access token refreshed for user: %s", email)
+    return new_access_token
 
 
 def revoke_refresh_token(db: Session, refresh_token: str) -> bool:
@@ -160,7 +186,26 @@ def revoke_refresh_token(db: Session, refresh_token: str) -> bool:
     token_record.updated_at = datetime.now(timezone.utc)
     token_record.updated_by = payload.get("email")
 
+    if token_record.access_token_jti:
+        existing_blacklist = (
+            db.query(AccessTokenBlacklist)
+            .filter(AccessTokenBlacklist.jti == token_record.access_token_jti)
+            .first()
+        )
+        if not existing_blacklist:
+            blacklist_record = AccessTokenBlacklist(
+                jti=token_record.access_token_jti,
+                token="",
+                expires_at=token_record.expires_at,
+                created_by=payload.get("email"),
+            )
+            db.add(blacklist_record)
+
     db.commit()
     logger.info("Refresh token revoked (jti=%s)", jti)
 
     return True
+
+
+def is_token_blacklisted(db: Session, jti: str) -> bool:
+    return db.query(AccessTokenBlacklist).filter(AccessTokenBlacklist.jti == jti).first() is not None
