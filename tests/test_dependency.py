@@ -1,4 +1,4 @@
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
@@ -7,19 +7,23 @@ from src.services.jwt_auth.dependancy import get_current_user, require_role
 
 
 class TestGetCurrentUser:
+    @patch("src.services.jwt_auth.dependancy.is_token_blacklisted")
     @patch("src.services.jwt_auth.dependancy.decode_token")
-    def test_valid_access_token(self, mock_decode):
+    def test_valid_access_token(self, mock_decode, mock_blacklist):
         mock_decode.return_value = {
             "sub": "user-id",
             "email": "test@example.com",
             "role": "user",
             "type": "access",
+            "jti": "abc-123",
         }
+        mock_blacklist.return_value = False
 
         credentials = MagicMock()
         credentials.credentials = "valid.token"
+        mock_db = MagicMock()
 
-        result = get_current_user(credentials)
+        result = get_current_user(credentials, mock_db)
 
         assert result["sub"] == "user-id"
         assert result["email"] == "test@example.com"
@@ -31,9 +35,10 @@ class TestGetCurrentUser:
 
         credentials = MagicMock()
         credentials.credentials = "bad.token"
+        mock_db = MagicMock()
 
         with pytest.raises(HTTPException) as exc_info:
-            get_current_user(credentials)
+            get_current_user(credentials, mock_db)
 
         assert exc_info.value.status_code == 401
         assert "Invalid or expired token" in exc_info.value.detail
@@ -49,12 +54,35 @@ class TestGetCurrentUser:
 
         credentials = MagicMock()
         credentials.credentials = "refresh.token"
+        mock_db = MagicMock()
 
         with pytest.raises(HTTPException) as exc_info:
-            get_current_user(credentials)
+            get_current_user(credentials, mock_db)
 
         assert exc_info.value.status_code == 401
         assert "Access token required" in exc_info.value.detail
+
+    @patch("src.services.jwt_auth.dependancy.is_token_blacklisted")
+    @patch("src.services.jwt_auth.dependancy.decode_token")
+    def test_blacklisted_token_raises_401(self, mock_decode, mock_blacklist):
+        mock_decode.return_value = {
+            "sub": "user-id",
+            "email": "test@example.com",
+            "role": "user",
+            "type": "access",
+            "jti": "blacklisted-jti",
+        }
+        mock_blacklist.return_value = True
+
+        credentials = MagicMock()
+        credentials.credentials = "blacklisted.token"
+        mock_db = MagicMock()
+
+        with pytest.raises(HTTPException) as exc_info:
+            get_current_user(credentials, mock_db)
+
+        assert exc_info.value.status_code == 401
+        assert "Token has been revoked" in exc_info.value.detail
 
 
 class TestRequireRole:

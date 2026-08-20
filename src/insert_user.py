@@ -8,15 +8,17 @@ logger = get_logger(__name__)
 SAMPLE_USERS = [
     {
         "name": "Test User",
-        "email_address": "testuser@example.com",
-        "password": "Test@123",
+        "email_address": "user@example.com",
+        "password": "user@123",
         "phone_number": "9876543210",
+        "role": "user",
     },
     {
-        "name": "Demo User",
-        "email_address": "demouser@example.com",
-        "password": "demo@123",
+        "name": "Test Admin",
+        "email_address": "admin@example.com",
+        "password": "admin@123",
         "phone_number": "9876543211",
+        "role": "admin",
     },
 ]
 
@@ -43,6 +45,7 @@ def seed_users() -> None:
                 name=sample_user["name"],
                 email_address=sample_user["email_address"],
                 password_hash=hash_password(sample_user["password"]),
+                role=sample_user["role"],
                 phone_number=sample_user["phone_number"],
                 is_active=True,
                 created_by=sample_user["name"],
